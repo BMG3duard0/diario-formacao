@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diário de Formação</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#a97a2f">
+<meta name="description" content="Registo diário de sumários e assinaturas de presença.">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Diário SIXSIS">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#faf6ee;
+    --surface:#ffffff;
+    --surface-2:#f2e9d8;
+    --ink:#2b2317;
+    --ink-soft:#75695a;
+    --ink-faint:#a99a86;
+    --border:#e4d7bc;
+    --accent:#a97a2f;
+    --accent-strong:#8a611f;
+    --accent-ink:#ffffff;
+    --accent-wash:#f4e6cd;
+    --signed:#3f7d52;
+    --signed-wash:#e3f1e6;
+    --danger:#b4482f;
+    --danger-wash:#f8e6e0;
+    --shadow: 0 1px 2px rgba(43,35,23,.06), 0 8px 24px -12px rgba(43,35,23,.18);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1c1712; --surface:#262019; --surface-2:#332a1e;
+      --ink:#f2e9da; --ink-soft:#c1af97; --ink-faint:#8a7c68;
+      --border:#463a29; --accent:#d4a955; --accent-strong:#e6bd6c;
+      --accent-ink:#241b0c; --accent-wash:#3a2f1c;
+      --signed:#78c98d; --signed-wash:#213a29;
+      --danger:#e08165; --danger-wash:#3d251f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1c1712; --surface:#262019; --surface-2:#332a1e;
+    --ink:#f2e9da; --ink-soft:#c1af97; --ink-faint:#8a7c68;
+    --border:#463a29; --accent:#d4a955; --accent-strong:#e6bd6c;
+    --accent-ink:#241b0c; --accent-wash:#3a2f1c;
+    --signed:#78c98d; --signed-wash:#213a29;
+    --danger:#e08165; --danger-wash:#3d251f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    overscroll-behavior-y: none;
+  }
+  h1,h2,h3{
+    font-family:"Fraunces","Georgia",serif; font-weight:600;
+    letter-spacing:-.01em; text-wrap:balance;
+  }
+  button{ font-family:inherit; }
+  input,textarea{ font-family:inherit; color:inherit; }
+  ::selection{ background:var(--accent-wash); }
+
+  .app{ max-width:920px; margin:0 auto; padding-inline:16px; padding-bottom:64px; }
+
+  /* ---------- header ---------- */
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:var(--bg); border-bottom:1px solid var(--border);
+  }
+  .top-inner{
+    max-width:920px; margin:0 auto; padding:14px 16px 12px;
+    display:flex; align-items:flex-start; gap:12px;
+  }
+  .brand-logo{ height:34px; width:auto; flex:none; margin-top:2px; }
+  .brand-text{ flex:1; min-width:0; }
+  .brand-text h1{ font-size:1.28rem; line-height:1.15; margin:0; word-break:break-word; }
+  .brand-meta{
+    margin-top:3px; color:var(--ink-soft); font-size:.78rem; line-height:1.5;
+    display:flex; flex-wrap:wrap; gap:0 10px;
+  }
+  .brand-meta span{ white-space:nowrap; }
+  .top-actions{ display:flex; gap:6px; flex:none; align-items:center; }
+  .icon-btn{
+    width:38px; height:38px; border-radius:10px; border:1px solid var(--border);
+    background:var(--surface); color:var(--ink-soft); display:flex; align-items:center;
+    justify-content:center; cursor:pointer; position:relative;
+  }
+  .icon-btn:active{ background:var(--surface-2); }
+  .icon-btn svg{ width:18px; height:18px; }
+
+  .sync-dot{
+    position:absolute; right:-2px; top:-2px; width:10px; height:10px; border-radius:50%;
+    border:2px solid var(--bg); background:var(--ink-faint);
+  }
+  .sync-dot.ok{ background:var(--signed); }
+  .sync-dot.pending{ background:var(--accent); }
+  .sync-dot.off{ background:var(--ink-faint); }
+  .sync-dot.err{ background:var(--danger); }
+  .sync-dot.hidden{ display:none; }
+
+  /* ---------- day tabs ---------- */
+  .day-tabs{
+    max-width:920px; margin:0 auto; padding:10px 16px 0;
+    display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;
+  }
+  .day-tabs::-webkit-scrollbar{ display:none; }
+  .day-tab{
+    flex:none; padding:8px 14px 9px; border-radius:12px 12px 0 0;
+    border:1px solid var(--border); border-bottom:none;
+    background:var(--surface-2); color:var(--ink-soft);
+    cursor:pointer; text-align:center; min-width:78px;
+  }
+  .day-tab .d1{ font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; display:block; }
+  .day-tab .d2{ font-size:.92rem; font-weight:600; display:block; margin-top:1px; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .day-tab.active{
+    background:var(--surface); color:var(--ink); border-color:var(--border);
+    box-shadow: 0 -2px 0 var(--accent) inset; position:relative; top:1px;
+  }
+
+  main{ padding-top:14px; }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:16px; margin-bottom:16px;
+  }
+  .card h2{ font-size:1rem; margin:0 0 10px; }
+  .card h2 .sub{ font-family:"Inter",sans-serif; font-weight:400; color:var(--ink-faint); font-size:.78rem; margin-left:6px; }
+
+  textarea.resumo{
+    width:100%; min-height:110px; resize:vertical; border:1px solid var(--border);
+    border-radius:10px; padding:10px 12px; background:var(--bg); color:var(--ink);
+    font-size:.95rem; line-height:1.5;
+  }
+  textarea.resumo:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .save-hint{ font-size:.72rem; color:var(--ink-faint); margin-top:6px; height:14px; }
+
+  .participants{ display:flex; flex-direction:column; }
+  .prow{
+    display:flex; align-items:center; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .prow:last-child{ border-bottom:none; }
+  .pname{ flex:1; min-width:0; font-size:.96rem; }
+  .pname .idx{ color:var(--ink-faint); font-size:.75rem; margin-right:6px; font-variant-numeric:tabular-nums; }
+
+  .sig-slot{ flex:none; }
+  .sig-btn{
+    border:1.5px dashed var(--border); background:var(--bg); color:var(--ink-faint);
+    border-radius:10px; padding:9px 14px; font-size:.84rem; cursor:pointer;
+    display:flex; align-items:center; gap:6px; min-width:132px; justify-content:center;
+  }
+  .sig-btn:active{ background:var(--surface-2); }
+  .sig-done{
+    border:1px solid var(--signed); background:var(--signed-wash); border-radius:10px;
+    padding:6px 10px; display:flex; align-items:center; gap:8px; cursor:pointer; min-width:132px;
+  }
+  .sig-done svg.ink{ height:26px; width:64px; flex:none; }
+  .sig-time{ font-size:.68rem; color:var(--signed); font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+  .row-remove{
+    flex:none; width:28px; height:28px; border-radius:8px; border:none; background:transparent;
+    color:var(--ink-faint); cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .row-remove:active{ background:var(--danger-wash); color:var(--danger); }
+  .row-confirm{ display:flex; align-items:center; gap:6px; }
+  .row-confirm button{
+    border-radius:8px; border:1px solid var(--border); background:var(--surface);
+    padding:6px 10px; font-size:.78rem; cursor:pointer;
+  }
+  .row-confirm .yes{ border-color:var(--danger); color:var(--danger); }
+
+  .add-participant{ display:flex; gap:8px; margin-top:4px; }
+  .add-participant input{
+    flex:1; border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+    background:var(--bg); color:var(--ink); font-size:.94rem;
+  }
+  .add-participant input:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .btn{
+    border:none; border-radius:10px; padding:10px 16px; background:var(--accent);
+    color:var(--accent-ink); font-weight:600; font-size:.9rem; cursor:pointer;
+  }
+  .btn:active{ background:var(--accent-strong); }
+  .btn.ghost{ background:transparent; border:1px solid var(--border); color:var(--ink); font-weight:500; }
+  .btn.block{ width:100%; }
+  .empty-note{ color:var(--ink-faint); font-size:.85rem; padding:6px 0 2px; }
+
+  .banner{
+    border-radius:10px; padding:8px 12px; font-size:.8rem; margin:12px auto 0;
+    max-width:920px; border:1px solid var(--border); background:var(--surface-2); color:var(--ink-soft);
+  }
+  .banner.warn{ background:var(--danger-wash); color:var(--danger); border-color:var(--danger); }
+  #banner{ padding-inline:16px; }
+
+  /* ---------- modal shell ---------- */
+  .modal-back{
+    position:fixed; inset:0; background:rgba(20,16,10,.55); z-index:100;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  @media (min-width:640px){ .modal-back{ align-items:center; } }
+  .modal{
+    background:var(--surface); width:100%; max-width:560px; border-radius:18px 18px 0 0;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+    box-shadow:var(--shadow); max-height:92vh; overflow-y:auto;
+  }
+  @media (min-width:640px){ .modal{ border-radius:18px; max-height:86vh; } }
+  .modal h3{ font-size:1.08rem; margin:0 0 14px; display:flex; justify-content:space-between; align-items:center; }
+  .modal h3 .x{ cursor:pointer; color:var(--ink-faint); font-size:1.3rem; line-height:1; }
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:.76rem; color:var(--ink-soft); margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
+  .field input,.field textarea{
+    width:100%; border:1px solid var(--border); border-radius:10px; padding:9px 11px;
+    background:var(--bg); color:var(--ink); font-size:.92rem;
+  }
+  .field input:focus,.field textarea:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+  .field .hint{ font-size:.72rem; color:var(--ink-faint); margin-top:4px; line-height:1.4; }
+  .modal-actions{ display:flex; gap:10px; margin-top:16px; }
+  .modal-actions .btn{ flex:1; }
+  .modal-sep{ border:none; border-top:1px solid var(--border); margin:16px 0 14px; }
+
+  .day-edit-row{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .day-edit-row input[type="date"]{
+    flex:1; border:1px solid var(--border); border-radius:10px; padding:8px 10px;
+    background:var(--bg); color:var(--ink); font-size:.9rem;
+  }
+  .day-edit-row .rm{
+    flex:none; width:32px; height:32px; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface); color:var(--ink-faint); cursor:pointer;
+  }
+
+  /* ---------- signature pad ---------- */
+  .sigpad-back{
+    position:fixed; inset:0; background:var(--bg); z-index:200;
+    display:flex; flex-direction:column;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .sigpad-head{
+    display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px;
+    border-bottom:1px solid var(--border);
+  }
+  .sigpad-head .who{ font-family:"Fraunces",serif; font-weight:600; font-size:1.05rem; }
+  .sigpad-head .when{ color:var(--ink-soft); font-size:.78rem; }
+  .sigpad-close{ background:none; border:none; color:var(--ink-faint); font-size:1.4rem; cursor:pointer; padding:4px 8px; }
+  .sigpad-canvas-wrap{
+    flex:1; margin:14px 16px; border:2px dashed var(--border); border-radius:16px;
+    position:relative; background:var(--surface); overflow:hidden; min-height:200px;
+  }
+  .sigpad-canvas-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; }
+  .sigpad-hint{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:var(--ink-faint); font-size:.85rem; pointer-events:none;
+  }
+  .sigpad-baseline{ position:absolute; left:24px; right:24px; bottom:28%; border-top:1.5px solid var(--border); pointer-events:none; }
+  .sigpad-actions{ display:flex; gap:10px; padding:4px 16px 16px; }
+  .sigpad-actions .btn{ flex:1; }
+
+  @media (max-width:420px){
+    .brand-text h1{ font-size:1.1rem; }
+    .sig-btn,.sig-done{ min-width:110px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <img class="brand-logo" src="icons/sixsis-logo.png" alt="SIXSIS">
+    <div class="brand-text">
+      <h1 id="hDesignacao">Formação</h1>
+      <div class="brand-meta">
+        <span id="hFormador"></span>
+        <span id="hLocal"></span>
+        <span id="hHorario"></span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btnExport" title="Exportar registo (CSV)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+      </button>
+      <button class="icon-btn" id="btnSettings" title="Configurar formação">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+        <span class="sync-dot hidden" id="syncDot"></span>
+      </button>
+    </div>
+  </div>
+  <div class="day-tabs" id="dayTabs"></div>
+</header>
+
+<div id="banner"></div>
+
+<div class="app">
+  <main>
+    <section class="card">
+      <h2>Resumo dos conteúdos abordados <span class="sub" id="resumoDayLabel"></span></h2>
+      <textarea class="resumo" id="resumoText" placeholder="O que foi dado neste dia…"></textarea>
+      <div class="save-hint" id="resumoSaveHint"></div>
+    </section>
+
+    <section class="card">
+      <h2>Participantes <span class="sub" id="signedCount"></span></h2>
+      <div class="participants" id="participantsList"></div>
+      <div id="emptyNote" class="empty-note" hidden>Ainda não há participantes — adiciona o primeiro abaixo.</div>
+      <div class="add-participant">
+        <input type="text" id="newParticipant" placeholder="Nome do novo participante" maxlength="80">
+        <button class="btn" id="btnAddParticipant">Adicionar</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-back" id="settingsBack" hidden>
+  <div class="modal">
+    <h3>Configurar formação <span class="x" id="settingsClose">&times;</span></h3>
+    <div class="field"><label>Designação</label><input id="fDesignacao" type="text"></div>
+    <div class="field"><label>Formador</label><input id="fFormador" type="text"></div>
+    <div class="field"><label>Entidade formadora</label><input id="fEntidade" type="text"></div>
+    <div class="field"><label>Local de realização</label><input id="fLocal" type="text"></div>
+    <div class="field"><label>Horário</label><input id="fHorario" type="text" placeholder="09:00-12:30      14:00-17:30"></div>
+    <div class="field">
+      <label>Dias da formação</label>
+      <div id="daysEditList"></div>
+      <button class="btn ghost block" id="btnAddDay" type="button" style="margin-top:6px;">+ Adicionar dia</button>
+    </div>
+
+    <hr class="modal-sep">
+
+    <div class="field">
+      <label>URL de sincronização (Google)</label>
+      <input id="fSyncUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" inputmode="url" autocomplete="off">
+      <div class="hint">Cola aqui o endereço da aplicação web do Google Apps Script. Deixa em branco para trabalhar só no tablet, sem cópia de segurança.</div>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <div style="display:flex; gap:10px;">
+        <button class="btn ghost" id="btnSyncNow" type="button" style="flex:1;">Enviar agora</button>
+        <button class="btn ghost" id="btnPullNow" type="button" style="flex:1;">Recuperar da nuvem</button>
+      </div>
+      <div class="hint" id="syncStatusText"></div>
+    </div>
+
+    <hr class="modal-sep">
+
+    <div class="field" style="margin-bottom:0;">
+      <button class="btn ghost block" id="btnNovaFormacao" type="button">Começar nova formação (limpar tudo)</button>
+      <div class="hint">Apaga resumos e assinaturas deste tablet. Faz primeiro a exportação ou a sincronização.</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn ghost" id="settingsCancel">Cancelar</button>
+      <button class="btn" id="settingsSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Signature pad -->
+<div class="sigpad-back" id="sigpadBack" hidden>
+  <div class="sigpad-head">
+    <div>
+      <div class="who" id="sigWho">Nome</div>
+      <div class="when" id="sigWhen">Dia</div>
+    </div>
+    <button class="sigpad-close" id="sigClose">&times;</button>
+  </div>
+  <div class="sigpad-canvas-wrap">
+    <div class="sigpad-baseline"></div>
+    <div class="sigpad-hint" id="sigHint">Assina com o dedo ou caneta aqui</div>
+    <canvas id="sigCanvas"></canvas>
+  </div>
+  <div class="sigpad-actions">
+    <button class="btn ghost" id="sigClear">Limpar</button>
+    <button class="btn" id="sigConfirm">Confirmar assinatura</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ===================== helpers ===================== */
+  var DIA_ABBR = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  var MES_ABBR = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+  function fmtDay(iso){
+    var d = new Date(iso + "T00:00:00");
+    return { top: DIA_ABBR[d.getDay()], bottom: d.getDate() + " " + MES_ABBR[d.getMonth()] };
+  }
+  function fmtLong(iso){
+    var d = new Date(iso + "T00:00:00");
+    return DIA_ABBR[d.getDay()] + ", " + d.getDate() + " " + MES_ABBR[d.getMonth()] + " " + d.getFullYear();
+  }
+  function todayISO(){
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function addDays(iso, n){
+    var d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function nowHM(){
+    var d = new Date();
+    return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  }
+  function escCsv(s){
+    s = String(s == null ? "" : s);
+    if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+  function escHtml(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function debounce(fn, ms){
+    var t = null;
+    return function(){
+      var args = arguments, ctx = this;
+      clearTimeout(t);
+      t = setTimeout(function(){ fn.apply(ctx, args); }, ms);
+    };
+  }
+
+  /* ===================== armazenamento local ===================== */
+  var NS = "sixsisDiario:v1:";
+  function lsGet(key, fallback){
+    try{
+      var raw = localStorage.getItem(NS + key);
+      if (raw == null) return fallback;
+      return JSON.parse(raw);
+    }catch(e){ return fallback; }
+  }
+  function lsSet(key, value){
+    try{ localStorage.setItem(NS + key, JSON.stringify(value)); return true; }
+    catch(e){ return false; }
+  }
+  function lsDel(key){
+    try{ localStorage.removeItem(NS + key); }catch(e){}
+  }
+
+  /* ===================== estado ===================== */
+  var DEFAULT_CONFIG = {
+    designacao: "Lean 6σ Green Belt",
+    formador: "Eduardo Oliveira Costa",
+    entidade: "SIXSIS, LeanSixSigma Solutions",
+    local: "Hotel Meliá Oriente - Lisboa",
+    horario: "09:00-12:30      14:00-17:30",
+    dias: [
+      { data: "2026-09-21", resumo: "" },
+      { data: "2026-09-22", resumo: "" },
+      { data: "2026-09-23", resumo: "" },
+      { data: "2026-09-24", resumo: "" },
+      { data: "2026-09-25", resumo: "" }
+    ]
+  };
+  var DEFAULT_PARTICIPANTS = [
+    "Patrícia Sousa","Gonçalo Carriço","Maria Laginha","Isabel Aguilar",
+    "Filipa Soares","Raquel Pires","Gonçalo Araújo","Telma Roque","Cláudia Salsinha"
+  ];
+
+  var state = {
+    config: lsGet("config", null),
+    participants: lsGet("participants", null),
+    signatures: lsGet("signatures", {}),
+    currentDay: 0
+  };
+
+  if (!state.config){
+    state.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    lsSet("config", state.config);
+  }
+  if (!state.participants){
+    state.participants = DEFAULT_PARTICIPANTS.map(function(n, i){
+      return { id: "p" + i, nome: n, ordem: i };
+    });
+    lsSet("participants", state.participants);
+  }
+
+  function persist(what){
+    if (!what || what === "config") lsSet("config", state.config);
+    if (!what || what === "participants") lsSet("participants", state.participants);
+    if (!what || what === "signatures") lsSet("signatures", state.signatures);
+    scheduleSync();
+  }
+
+  function clampCurrentDay(){
+    var n = (state.config && state.config.dias) ? state.config.dias.length : 1;
+    if (state.currentDay >= n) state.currentDay = Math.max(0, n - 1);
+  }
+
+  function selectTodayIfPossible(){
+    var dias = state.config.dias || [];
+    var hoje = todayISO();
+    for (var i = 0; i < dias.length; i++){
+      if (dias[i].data === hoje){ state.currentDay = i; return; }
+    }
+  }
+
+  /* ===================== sincronização ===================== */
+  var syncUrl = lsGet("syncUrl", "");
+  var syncState = "idle";   // idle | pending | ok | err | off
+  var lastSyncAt = lsGet("lastSyncAt", null);
+
+  function setSyncState(s){
+    syncState = s;
+    var dot = document.getElementById("syncDot");
+    dot.className = "sync-dot " + (syncUrl ? s : "hidden");
+    updateSyncStatusText();
+  }
+
+  function updateSyncStatusText(){
+    var el = document.getElementById("syncStatusText");
+    if (!el) return;
+    if (!syncUrl){ el.textContent = "Sincronização desligada."; return; }
+    if (syncState === "pending") el.textContent = "A enviar…";
+    else if (syncState === "err") el.textContent = "Não foi possível enviar. Nova tentativa automática quando houver ligação.";
+    else if (lastSyncAt) el.textContent = "Última cópia de segurança: " + new Date(lastSyncAt).toLocaleString("pt-PT");
+    else el.textContent = "Ainda sem cópia de segurança.";
+  }
+
+  function snapshot(){
+    return {
+      config: state.config,
+      participants: state.participants,
+      signatures: state.signatures,
+      dispositivo: (navigator.userAgent || "").slice(0, 120),
+      enviadoEm: new Date().toISOString()
+    };
+  }
+
+  var syncPending = false;
+
+  function doSync(){
+    if (!syncUrl){ setSyncState("off"); return Promise.resolve(false); }
+    if (!navigator.onLine){ syncPending = true; setSyncState("err"); return Promise.resolve(false); }
+    setSyncState("pending");
+    // Content-Type text/plain evita o "preflight" CORS, que o Apps Script não responde.
+    return fetch(syncUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(snapshot())
+    }).then(function(res){
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.text();
+    }).then(function(){
+      syncPending = false;
+      lastSyncAt = new Date().toISOString();
+      lsSet("lastSyncAt", lastSyncAt);
+      setSyncState("ok");
+      return true;
+    }).catch(function(){
+      syncPending = true;
+      setSyncState("err");
+      return false;
+    });
+  }
+
+  var scheduleSync = debounce(function(){ doSync(); }, 2500);
+
+  window.addEventListener("online", function(){ if (syncPending) doSync(); });
+  setInterval(function(){ if (syncPending && navigator.onLine) doSync(); }, 60000);
+
+  function pullFromCloud(){
+    if (!syncUrl) return Promise.resolve(false);
+    setSyncState("pending");
+    return fetch(syncUrl, { method: "GET" })
+      .then(function(res){ return res.json(); })
+      .then(function(json){
+        if (!json || !json.ok || !json.data) throw new Error("sem dados");
+        var d = json.data;
+        if (d.config) state.config = d.config;
+        if (d.participants) state.participants = d.participants;
+        state.signatures = d.signatures || {};
+        lsSet("config", state.config);
+        lsSet("participants", state.participants);
+        lsSet("signatures", state.signatures);
+        clampCurrentDay();
+        render();
+        setSyncState("ok");
+        return true;
+      }).catch(function(){
+        setSyncState("err");
+        return false;
+      });
+  }
+
+  /* ===================== banner ===================== */
+  var bannerTimer = null;
+  function showBanner(msg, warn){
+    var b = document.getElementById("banner");
+    b.innerHTML = msg ? '<div class="banner' + (warn ? " warn" : "") + '">' + escHtml(msg) + '</div>' : "";
+    clearTimeout(bannerTimer);
+    if (msg) bannerTimer = setTimeout(function(){ showBanner(""); }, 4000);
+  }
+
+  /* ===================== render ===================== */
+  function render(){
+    var cfg = state.config;
+    document.getElementById("hDesignacao").textContent = cfg.designacao || "Formação";
+    document.getElementById("hFormador").textContent = cfg.formador ? ("Formador: " + cfg.formador) : "";
+    document.getElementById("hLocal").textContent = cfg.local || "";
+    document.getElementById("hHorario").textContent = cfg.horario || "";
+    renderDayTabs();
+    renderResumo();
+    renderParticipants();
+  }
+
+  function renderDayTabs(){
+    var wrap = document.getElementById("dayTabs");
+    var dias = state.config.dias || [];
+    var html = "";
+    dias.forEach(function(dia, i){
+      var f = fmtDay(dia.data);
+      html += '<div class="day-tab' + (i === state.currentDay ? " active" : "") + '" data-day="' + i + '">' +
+        '<span class="d1">' + f.top + '</span><span class="d2">' + f.bottom + '</span></div>';
+    });
+    wrap.innerHTML = html;
+    Array.prototype.forEach.call(wrap.querySelectorAll(".day-tab"), function(el){
+      el.addEventListener("click", function(){
+        state.currentDay = parseInt(el.getAttribute("data-day"), 10);
+        render();
+      });
+    });
+  }
+
+  function renderResumo(){
+    var dia = state.config.dias[state.currentDay];
+    if (!dia) return;
+    document.getElementById("resumoDayLabel").textContent = "— " + fmtLong(dia.data);
+    var ta = document.getElementById("resumoText");
+    if (document.activeElement !== ta){ ta.value = dia.resumo || ""; }
+  }
+
+  function sigKey(pid, day){ return pid + "_d" + day; }
+
+  function strokesToSvg(strokes, w, h){
+    var vb = 300, vbh = 120;
+    var paths = strokes.map(function(stroke){
+      var pts = stroke.map(function(pt){ return (pt[0]*vb).toFixed(1) + "," + (pt[1]*vbh).toFixed(1); }).join(" ");
+      return '<polyline points="' + pts + '" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
+    }).join("");
+    return '<svg class="ink" width="' + w + '" height="' + h + '" viewBox="0 0 ' + vb + ' ' + vbh + '" style="color:var(--signed)">' + paths + '</svg>';
+  }
+
+  function renderSigSlot(sig){
+    if (sig && sig.strokes && sig.strokes.length){
+      return '<div class="sig-done">' + strokesToSvg(sig.strokes, 64, 26) +
+        '<span class="sig-time">' + escHtml(sig.ts || "") + '</span></div>';
+    }
+    return '<button type="button" class="sig-btn">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3-1 5-1 8-4l7-7a2.5 2.5 0 0 0-3.5-3.5l-7 7c-3 3-3 5-4 8Z"/><path d="M14 6l3.5 3.5"/></svg>' +
+      'Assinar</button>';
+  }
+
+  function renderParticipants(){
+    var list = document.getElementById("participantsList");
+    var participants = state.participants || [];
+    document.getElementById("emptyNote").hidden = participants.length > 0;
+
+    var signedToday = 0;
+    var html = "";
+    participants.forEach(function(p, idx){
+      var sig = state.signatures[sigKey(p.id, state.currentDay)];
+      if (sig) signedToday++;
+      html += '<div class="prow" data-pid="' + escHtml(p.id) + '">' +
+        '<div class="pname"><span class="idx">' + (idx+1) + '</span>' + escHtml(p.nome) + '</div>' +
+        '<div class="sig-slot">' + renderSigSlot(sig) + '</div>' +
+        '<div class="row-remove-wrap"></div>' +
+        '</div>';
+    });
+    list.innerHTML = html;
+    document.getElementById("signedCount").textContent =
+      participants.length ? ("· " + signedToday + " / " + participants.length + " assinaram neste dia") : "";
+
+    Array.prototype.forEach.call(list.querySelectorAll(".sig-slot"), function(el){
+      el.addEventListener("click", function(){
+        var pid = el.closest(".prow").getAttribute("data-pid");
+        var p = participants.filter(function(x){ return x.id === pid; })[0];
+        if (p) openSigPad(p);
+      });
+    });
+    Array.prototype.forEach.call(list.querySelectorAll(".prow"), function(row){
+      var pid = row.getAttribute("data-pid");
+      var rw = row.querySelector(".row-remove-wrap");
+      var btn = document.createElement("button");
+      btn.className = "row-remove";
+      btn.title = "Remover participante";
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+      btn.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        confirmRemove(row, pid);
+      });
+      rw.appendChild(btn);
+    });
+  }
+
+  function confirmRemove(row, pid){
+    var wrap = row.querySelector(".row-remove-wrap");
+    wrap.innerHTML = '<div class="row-confirm"><button class="no">Cancelar</button><button class="yes">Remover</button></div>';
+    wrap.querySelector(".no").addEventListener("click", function(ev){
+      ev.stopPropagation(); renderParticipants();
+    });
+    wrap.querySelector(".yes").addEventListener("click", function(ev){
+      ev.stopPropagation(); removeParticipant(pid);
+    });
+  }
+
+  function removeParticipant(pid){
+    state.participants = state.participants.filter(function(p){ return p.id !== pid; });
+    Object.keys(state.signatures).forEach(function(k){
+      if (k.indexOf(pid + "_d") === 0) delete state.signatures[k];
+    });
+    persist();
+    render();
+  }
+
+  /* ===================== resumo ===================== */
+  var saveResumo = debounce(function(dayIndex, value){
+    if (!state.config.dias[dayIndex]) return;
+    state.config.dias[dayIndex].resumo = value;
+    persist("config");
+    var hint = document.getElementById("resumoSaveHint");
+    hint.textContent = "Guardado";
+    setTimeout(function(){ if (hint.textContent === "Guardado") hint.textContent = ""; }, 1400);
+  }, 500);
+
+  document.getElementById("resumoText").addEventListener("input", function(e){
+    document.getElementById("resumoSaveHint").textContent = "A guardar…";
+    saveResumo(state.currentDay, e.target.value);
+  });
+
+  /* ===================== participantes ===================== */
+  document.getElementById("btnAddParticipant").addEventListener("click", addParticipant);
+  document.getElementById("newParticipant").addEventListener("keydown", function(e){
+    if (e.key === "Enter") addParticipant();
+  });
+  function addParticipant(){
+    var input = document.getElementById("newParticipant");
+    var nome = input.value.trim();
+    if (!nome) return;
+    input.value = "";
+    state.participants.push({ id: "p" + Date.now(), nome: nome, ordem: state.participants.length });
+    persist("participants");
+    render();
+  }
+
+  /* ===================== definições ===================== */
+  var settingsBack = document.getElementById("settingsBack");
+  var editDias = [];
+
+  document.getElementById("btnSettings").addEventListener("click", openSettings);
+  document.getElementById("settingsClose").addEventListener("click", closeSettings);
+  document.getElementById("settingsCancel").addEventListener("click", closeSettings);
+  settingsBack.addEventListener("click", function(e){ if (e.target === settingsBack) closeSettings(); });
+
+  function openSettings(){
+    var cfg = state.config;
+    document.getElementById("fDesignacao").value = cfg.designacao || "";
+    document.getElementById("fFormador").value = cfg.formador || "";
+    document.getElementById("fEntidade").value = cfg.entidade || "";
+    document.getElementById("fLocal").value = cfg.local || "";
+    document.getElementById("fHorario").value = cfg.horario || "";
+    document.getElementById("fSyncUrl").value = syncUrl || "";
+    editDias = (cfg.dias || []).map(function(d){ return d.data; });
+    renderDaysEdit();
+    updateSyncStatusText();
+    settingsBack.hidden = false;
+  }
+  function closeSettings(){ settingsBack.hidden = true; }
+
+  function renderDaysEdit(){
+    var wrap = document.getElementById("daysEditList");
+    var html = "";
+    editDias.forEach(function(d, i){
+      html += '<div class="day-edit-row" data-i="' + i + '"><input type="date" value="' + d + '"><button type="button" class="rm">&times;</button></div>';
+    });
+    wrap.innerHTML = html;
+    Array.prototype.forEach.call(wrap.querySelectorAll(".day-edit-row"), function(row){
+      var i = parseInt(row.getAttribute("data-i"), 10);
+      row.querySelector("input").addEventListener("change", function(e){ editDias[i] = e.target.value; });
+      row.querySelector(".rm").addEventListener("click", function(){
+        editDias.splice(i, 1);
+        renderDaysEdit();
+      });
+    });
+  }
+  document.getElementById("btnAddDay").addEventListener("click", function(){
+    var last = editDias.length ? editDias[editDias.length - 1] : todayISO();
+    editDias.push(addDays(last, 1));
+    renderDaysEdit();
+  });
+
+  document.getElementById("settingsSave").addEventListener("click", function(){
+    var oldDias = state.config.dias || [];
+    var newDias = editDias.map(function(data){
+      var found = oldDias.filter(function(d){ return d.data === data; })[0];
+      return { data: data, resumo: found ? (found.resumo || "") : "" };
+    });
+    state.config = {
+      designacao: document.getElementById("fDesignacao").value.trim(),
+      formador: document.getElementById("fFormador").value.trim(),
+      entidade: document.getElementById("fEntidade").value.trim(),
+      local: document.getElementById("fLocal").value.trim(),
+      horario: document.getElementById("fHorario").value,
+      dias: newDias.length ? newDias : [{ data: todayISO(), resumo: "" }]
+    };
+    var novoUrl = document.getElementById("fSyncUrl").value.trim();
+    if (novoUrl !== syncUrl){
+      syncUrl = novoUrl;
+      lsSet("syncUrl", syncUrl);
+    }
+    clampCurrentDay();
+    persist();
+    setSyncState(syncUrl ? "pending" : "off");
+    render();
+    closeSettings();
+  });
+
+  document.getElementById("btnSyncNow").addEventListener("click", function(){
+    var novoUrl = document.getElementById("fSyncUrl").value.trim();
+    if (novoUrl !== syncUrl){ syncUrl = novoUrl; lsSet("syncUrl", syncUrl); }
+    if (!syncUrl){ showBanner("Indica primeiro o URL de sincronização.", true); return; }
+    doSync().then(function(ok){
+      showBanner(ok ? "Cópia de segurança enviada." : "Não foi possível enviar. Verifica o URL e a ligação.", !ok);
+    });
+  });
+
+  document.getElementById("btnPullNow").addEventListener("click", function(){
+    var novoUrl = document.getElementById("fSyncUrl").value.trim();
+    if (novoUrl !== syncUrl){ syncUrl = novoUrl; lsSet("syncUrl", syncUrl); }
+    if (!syncUrl){ showBanner("Indica primeiro o URL de sincronização.", true); return; }
+    pullFromCloud().then(function(ok){
+      if (ok){ closeSettings(); showBanner("Dados recuperados da nuvem."); }
+      else showBanner("Não foi possível recuperar. Verifica o URL e a ligação.", true);
+    });
+  });
+
+  document.getElementById("btnNovaFormacao").addEventListener("click", function(){
+    var btn = this;
+    if (btn.getAttribute("data-armed") !== "1"){
+      btn.setAttribute("data-armed", "1");
+      btn.textContent = "Tens a certeza? Tocar outra vez para limpar";
+      setTimeout(function(){
+        btn.removeAttribute("data-armed");
+        btn.textContent = "Começar nova formação (limpar tudo)";
+      }, 5000);
+      return;
+    }
+    lsDel("config"); lsDel("participants"); lsDel("signatures"); lsDel("lastSyncAt");
+    state.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    state.config.dias = [{ data: todayISO(), resumo: "" }];
+    state.participants = [];
+    state.signatures = {};
+    state.currentDay = 0;
+    lastSyncAt = null;
+    lsSet("config", state.config);
+    lsSet("participants", state.participants);
+    lsSet("signatures", state.signatures);
+    btn.removeAttribute("data-armed");
+    btn.textContent = "Começar nova formação (limpar tudo)";
+    render();
+    closeSettings();
+    showBanner("Pronto para uma nova formação.");
+  });
+
+  /* ===================== assinaturas ===================== */
+  var sigBack = document.getElementById("sigpadBack");
+  var sigCanvas = document.getElementById("sigCanvas");
+  var sigCtx = sigCanvas.getContext("2d");
+  var sigStrokes = [];
+  var sigCurrent = null;
+  var sigParticipant = null;
+
+  function openSigPad(p){
+    sigParticipant = p;
+    sigStrokes = [];
+    sigCurrent = null;
+    document.getElementById("sigWho").textContent = p.nome;
+    document.getElementById("sigWhen").textContent = fmtLong(state.config.dias[state.currentDay].data);
+    document.getElementById("sigHint").style.display = "flex";
+    sigBack.hidden = false;
+    requestAnimationFrame(setupCanvas);
+  }
+  function closeSigPad(){ sigBack.hidden = true; }
+  document.getElementById("sigClose").addEventListener("click", closeSigPad);
+
+  function setupCanvas(){
+    var rect = sigCanvas.parentElement.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    sigCanvas.width = rect.width * dpr;
+    sigCanvas.height = rect.height * dpr;
+    sigCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sigCtx.lineWidth = 2.6;
+    sigCtx.lineCap = "round";
+    sigCtx.lineJoin = "round";
+    sigCtx.strokeStyle = getComputedStyle(document.body).color || "#2b2317";
+    redrawCanvas();
+  }
+  window.addEventListener("resize", function(){ if (!sigBack.hidden) setupCanvas(); });
+
+  function redrawCanvas(){
+    var rect = sigCanvas.getBoundingClientRect();
+    sigCtx.clearRect(0, 0, rect.width, rect.height);
+    sigStrokes.forEach(function(stroke){
+      if (stroke.length < 2) return;
+      sigCtx.beginPath();
+      sigCtx.moveTo(stroke[0][0]*rect.width, stroke[0][1]*rect.height);
+      for (var i = 1; i < stroke.length; i++){
+        sigCtx.lineTo(stroke[i][0]*rect.width, stroke[i][1]*rect.height);
+      }
+      sigCtx.stroke();
+    });
+  }
+
+  function ptFromEvent(e, rect){
+    var x = (e.clientX - rect.left) / rect.width;
+    var y = (e.clientY - rect.top) / rect.height;
+    return [ +Math.max(0,Math.min(1,x)).toFixed(3), +Math.max(0,Math.min(1,y)).toFixed(3) ];
+  }
+
+  sigCanvas.addEventListener("pointerdown", function(e){
+    e.preventDefault();
+    document.getElementById("sigHint").style.display = "none";
+    sigCanvas.setPointerCapture(e.pointerId);
+    sigCurrent = [ptFromEvent(e, sigCanvas.getBoundingClientRect())];
+    sigStrokes.push(sigCurrent);
+  });
+  sigCanvas.addEventListener("pointermove", function(e){
+    if (!sigCurrent) return;
+    e.preventDefault();
+    sigCurrent.push(ptFromEvent(e, sigCanvas.getBoundingClientRect()));
+    redrawCanvas();
+  });
+  function endStroke(){ sigCurrent = null; }
+  sigCanvas.addEventListener("pointerup", endStroke);
+  sigCanvas.addEventListener("pointercancel", endStroke);
+  sigCanvas.addEventListener("pointerleave", endStroke);
+
+  document.getElementById("sigClear").addEventListener("click", function(){
+    sigStrokes = [];
+    sigCurrent = null;
+    document.getElementById("sigHint").style.display = "flex";
+    redrawCanvas();
+  });
+
+  document.getElementById("sigConfirm").addEventListener("click", function(){
+    if (!sigStrokes.length || sigStrokes.every(function(s){ return s.length < 2; })){
+      closeSigPad();
+      return;
+    }
+    var key = sigKey(sigParticipant.id, state.currentDay);
+    state.signatures[key] = {
+      strokes: sigStrokes,
+      ts: nowHM(),
+      data: state.config.dias[state.currentDay].data,
+      nome: sigParticipant.nome,
+      diaIndex: state.currentDay,
+      participanteId: sigParticipant.id
+    };
+    persist("signatures");
+    closeSigPad();
+    render();
+  });
+
+  /* ===================== exportação CSV ===================== */
+  document.getElementById("btnExport").addEventListener("click", function(){
+    var cfg = state.config;
+    var dias = cfg.dias || [];
+    var lines = [];
+    lines.push(["Designação", cfg.designacao].map(escCsv).join(","));
+    lines.push(["Formador", cfg.formador].map(escCsv).join(","));
+    lines.push(["Entidade Formadora", cfg.entidade].map(escCsv).join(","));
+    lines.push(["Local de Realização", cfg.local].map(escCsv).join(","));
+    lines.push(["Horário", cfg.horario].map(escCsv).join(","));
+    lines.push("");
+    lines.push(["Resumo dos conteúdos abordados"].map(escCsv).join(","));
+    lines.push(["Dia","Resumo"].map(escCsv).join(","));
+    dias.forEach(function(d){ lines.push([fmtLong(d.data), d.resumo || ""].map(escCsv).join(",")); });
+    lines.push("");
+    lines.push(["Presenças"].map(escCsv).join(","));
+    lines.push(["Participante"].concat(dias.map(function(d){ return fmtLong(d.data); })).map(escCsv).join(","));
+    state.participants.forEach(function(p){
+      var row = [p.nome];
+      dias.forEach(function(d, i){
+        var sig = state.signatures[sigKey(p.id, i)];
+        row.push(sig ? ("Assinado " + sig.ts) : "");
+      });
+      lines.push(row.map(escCsv).join(","));
+    });
+
+    // BOM para o Excel abrir os acentos corretamente
+    var csv = "﻿" + lines.join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "Presencas_" + String(cfg.designacao || "Formacao").replace(/[^\w -]/g,"").trim().replace(/\s+/g,"_") + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  });
+
+  /* ===================== arranque ===================== */
+  clampCurrentDay();
+  selectTodayIfPossible();
+  render();
+  setSyncState(syncUrl ? (lastSyncAt ? "ok" : "pending") : "off");
+
+  if (syncUrl && navigator.onLine) doSync();
+
+  if ("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("service-worker.js").catch(function(){});
+    });
+  }
+})();
+</script>
+</body>
+</html>
