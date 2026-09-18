@@ -1588,28 +1588,58 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     }catch(e){ return false; }
   }
 
-  function abrirEmailComAnexoManual(assunto, filename){
-    if (!reportEmail) return;
-    var corpo = "Segue o relatório da formação " + (state.config.designacao || "") + ".\n\n" +
-      "O ficheiro " + filename + " está na pasta Transferências — anexa-o antes de enviar.";
-    window.location.href = "mailto:" + encodeURIComponent(reportEmail) +
-      "?subject=" + encodeURIComponent(assunto) + "&body=" + encodeURIComponent(corpo);
+  function corpoEmail(filename){
+    return "Segue o relatório da formação " + (state.config.designacao || "") + ".\n\n" +
+      "(O ficheiro " + filename + " está na pasta Transferências — anexa-o antes de enviar.)";
+  }
+
+  // Gmail no browser: não depende de haver programa de email instalado.
+  function abrirGmail(assunto, filename){
+    var u = "https://mail.google.com/mail/?view=cm&fs=1" +
+      "&to=" + encodeURIComponent(reportEmail || "") +
+      "&su=" + encodeURIComponent(assunto) +
+      "&body=" + encodeURIComponent(corpoEmail(filename));
+    window.open(u, "_blank");
+  }
+
+  // Programa de email do computador (Outlook, Mail…). Se o Windows não tiver
+  // nenhum associado, isto não faz nada — daí o aviso a seguir.
+  function abrirAppEmail(assunto, filename){
+    var u = "mailto:" + encodeURIComponent(reportEmail || "") +
+      "?subject=" + encodeURIComponent(assunto) +
+      "&body=" + encodeURIComponent(corpoEmail(filename));
+    var aberto = false;
+    function marcar(){ aberto = true; }
+    window.addEventListener("blur", marcar, { once: true });
+    try{ window.location.href = u; }catch(e){}
+    setTimeout(function(){
+      window.removeEventListener("blur", marcar);
+      if (!aberto){
+        var n = document.getElementById("avisoEmail");
+        if (n) n.textContent = "O Windows não tem programa de email predefinido — usa o botão do Gmail.";
+      }
+    }, 1800);
   }
 
   function bannerRelatorioPronto(assunto, out, urlAberto){
     var b = document.getElementById("banner");
     b.innerHTML = '<div class="banner" style="display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;">' +
-      '<span>Relatório gerado e guardado nas Transferências.</span>' +
+      '<span>Relatório guardado nas Transferências. Escolhe onde escrever o email e anexa-o lá.' +
+      '<br><span id="avisoEmail" style="font-size:.74rem;color:var(--ink-faint);"></span></span>' +
       '<span style="display:flex;gap:8px;flex:none;">' +
-      '<button class="btn ghost" id="btnAbrirPdf" style="flex:none;">Abrir</button>' +
-      '<button class="btn" id="btnEmailPdf" style="flex:none;">Enviar por email</button>' +
+      '<button class="btn ghost" id="btnAbrirPdf" style="flex:none;">Abrir PDF</button>' +
+      '<button class="btn ghost" id="btnEmailApp" style="flex:none;">Outlook</button>' +
+      '<button class="btn" id="btnEmailGmail" style="flex:none;">Gmail</button>' +
       '</span></div>';
     clearTimeout(bannerTimer);
     document.getElementById("btnAbrirPdf").addEventListener("click", function(){
       window.open(urlAberto, "_blank");
     });
-    document.getElementById("btnEmailPdf").addEventListener("click", function(){
-      abrirEmailComAnexoManual(assunto, out.filename);
+    document.getElementById("btnEmailGmail").addEventListener("click", function(){
+      abrirGmail(assunto, out.filename);
+    });
+    document.getElementById("btnEmailApp").addEventListener("click", function(){
+      abrirAppEmail(assunto, out.filename);
     });
   }
 
@@ -1653,17 +1683,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       return;
     }
 
-    // sem partilha de ficheiros: guarda o PDF e abre o email já endereçado
+    // tablet sem partilha de ficheiros: guarda e deixa escolher onde escrever
+    var url2 = URL.createObjectURL(out.blob);
     guardarPdf(out.blob, out.filename);
-    showBanner("Relatório guardado. Anexa-o ao email que vai abrir.");
-    if (reportEmail){
-      var corpo = "Segue em anexo o relatório da formação " + (cfg.designacao || "") + ".\n\n" +
-        "Ficheiro: " + out.filename;
-      setTimeout(function(){
-        window.location.href = "mailto:" + encodeURIComponent(reportEmail) +
-          "?subject=" + encodeURIComponent(assunto) + "&body=" + encodeURIComponent(corpo);
-      }, 1200);
-    }
+    bannerRelatorioPronto(assunto, out, url2);
+    setTimeout(function(){ URL.revokeObjectURL(url2); }, 600000);
   }
 
   document.getElementById("btnReport").addEventListener("click", enviarRelatorio);
