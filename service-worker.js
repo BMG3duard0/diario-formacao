@@ -3,23 +3,29 @@
 // requests (the Google Apps Script sync calls), so those always go
 // straight to the network.
 
-var CACHE_VERSION = "sixsis-diario-v3";
-var APP_SHELL = [
-  "./",
-  "./index.html",
+var CACHE_VERSION = "sixsis-diario-v4";
+
+// O index.html é auto-suficiente (traz o logótipo e a biblioteca do PDF lá
+// dentro), por isso é o único ficheiro obrigatório. Os restantes são extras:
+// se algum faltar no servidor, a app continua a funcionar.
+var ESSENCIAL = ["./", "./index.html"];
+var EXTRAS = [
   "./manifest.json",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/icon-maskable-512.png",
-  "./icons/apple-touch-icon.png",
-  "./icons/sixsis-logo.png",
-  "./vendor/jspdf.umd.min.js"
+  "./icon-192.png",
+  "./icon-512.png",
+  "./icon-maskable-512.png",
+  "./apple-touch-icon.png"
 ];
 
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE_VERSION).then(function (cache) {
-      return cache.addAll(APP_SHELL);
+      return cache.addAll(ESSENCIAL).then(function () {
+        // guardados um a um: um 404 aqui não faz falhar a instalação
+        return Promise.all(EXTRAS.map(function (u) {
+          return cache.add(u).catch(function () { return null; });
+        }));
+      });
     }).then(function () {
       return self.skipWaiting();
     })
