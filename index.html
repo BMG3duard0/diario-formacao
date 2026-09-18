@@ -718,6 +718,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
       <button class="btn ghost block" id="btnAddDay" type="button" style="margin-top:6px;">+ Adicionar dia</button>
     </div>
 
+    <div class="field">
+      <label>Participantes (um por linha)</label>
+      <textarea id="fParticipantes" rows="8" placeholder="Cola aqui a lista de nomes, um em cada linha"></textarea>
+      <div class="hint">Podes colar a lista de uma vez. Os nomes ficam guardados neste dispositivo — nunca são publicados.</div>
+    </div>
+
     <hr class="modal-sep">
 
     <div class="field">
@@ -841,24 +847,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   }
 
   /* ===================== estado ===================== */
+  // Este ficheiro está publicado num endereço público: não leva dados de
+  // clientes nem nomes de participantes. Tudo isso é introduzido no
+  // dispositivo e fica só lá.
   var DEFAULT_CONFIG = {
-    designacao: "Lean 6σ Green Belt",
-    formador: "Eduardo Oliveira Costa",
+    designacao: "Formação",
+    formador: "",
     entidade: "SIXSIS, LeanSixSigma Solutions",
-    local: "Hotel Meliá Oriente - Lisboa",
+    local: "",
     horario: "09:00-12:30      14:00-17:30",
     dias: [
-      { data: "2026-09-21", resumo: "" },
-      { data: "2026-09-22", resumo: "" },
-      { data: "2026-09-23", resumo: "" },
-      { data: "2026-09-24", resumo: "" },
-      { data: "2026-09-25", resumo: "" }
+      { data: todayISO(), resumo: "" }
     ]
   };
-  var DEFAULT_PARTICIPANTS = [
-    "Patrícia Sousa","Gonçalo Carriço","Maria Laginha","Isabel Aguilar",
-    "Filipa Soares","Raquel Pires","Gonçalo Araújo","Telma Roque","Cláudia Salsinha"
-  ];
+  var DEFAULT_PARTICIPANTS = [];
 
   var state = {
     config: lsGet("config", null),
@@ -1164,6 +1166,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     document.getElementById("fHorario").value = cfg.horario || "";
     document.getElementById("fSyncUrl").value = syncUrl || "";
     document.getElementById("fReportEmail").value = reportEmail || "";
+    document.getElementById("fParticipantes").value =
+      (state.participants || []).map(function(p){ return p.nome; }).join("\n");
     editDias = (cfg.dias || []).map(function(d){ return d.data; });
     renderDaysEdit();
     updateSyncStatusText();
@@ -1214,6 +1218,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     }
     reportEmail = document.getElementById("fReportEmail").value.trim();
     lsSet("reportEmail", reportEmail);
+
+    // lista de participantes: mantém o id (e as assinaturas) de quem já lá estava
+    var nomes = document.getElementById("fParticipantes").value
+      .split("\n").map(function(n){ return n.trim(); }).filter(function(n){ return n.length; });
+    var antigos = state.participants || [];
+    var usados = {};
+    var novos = nomes.map(function(nome, i){
+      var achado = null;
+      for (var k = 0; k < antigos.length; k++){
+        if (antigos[k].nome === nome && !usados[antigos[k].id]){ achado = antigos[k]; break; }
+      }
+      if (achado){ usados[achado.id] = true; return { id: achado.id, nome: nome, ordem: i }; }
+      return { id: "p" + Date.now() + "_" + i, nome: nome, ordem: i };
+    });
+    antigos.forEach(function(p){
+      if (usados[p.id]) return;
+      Object.keys(state.signatures).forEach(function(k){
+        if (k.indexOf(p.id + "_d") === 0) delete state.signatures[k];
+      });
+    });
+    state.participants = novos;
+
     clampCurrentDay();
     persist();
     setSyncState(syncUrl ? "pending" : "off");
@@ -1369,7 +1395,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   });
 
   /* ===================== relatório PDF ===================== */
-  var reportEmail = lsGet("reportEmail", "eduardo.costa@sixsis.com");
+  var reportEmail = lsGet("reportEmail", "");
   var logoDataUrl = null;
 
   (function preloadLogo(){
