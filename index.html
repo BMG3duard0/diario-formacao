@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Diário SIXSIS">
 <link rel="icon" href="icons/icon-192.png">
+<script src="vendor/jspdf.umd.min.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -289,6 +290,9 @@
       </div>
     </div>
     <div class="top-actions">
+      <button class="icon-btn" id="btnReport" title="Relatório e envio por email">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+      </button>
       <button class="icon-btn" id="btnExport" title="Exportar registo (CSV)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
       </button>
@@ -336,6 +340,14 @@
       <label>Dias da formação</label>
       <div id="daysEditList"></div>
       <button class="btn ghost block" id="btnAddDay" type="button" style="margin-top:6px;">+ Adicionar dia</button>
+    </div>
+
+    <hr class="modal-sep">
+
+    <div class="field">
+      <label>Email para o relatório</label>
+      <input id="fReportEmail" type="email" placeholder="nome@empresa.com" inputmode="email" autocomplete="off">
+      <div class="hint">Destinatário sugerido quando enviares o relatório no fim da formação.</div>
     </div>
 
     <hr class="modal-sep">
@@ -775,6 +787,7 @@
     document.getElementById("fLocal").value = cfg.local || "";
     document.getElementById("fHorario").value = cfg.horario || "";
     document.getElementById("fSyncUrl").value = syncUrl || "";
+    document.getElementById("fReportEmail").value = reportEmail || "";
     editDias = (cfg.dias || []).map(function(d){ return d.data; });
     renderDaysEdit();
     updateSyncStatusText();
@@ -823,6 +836,8 @@
       syncUrl = novoUrl;
       lsSet("syncUrl", syncUrl);
     }
+    reportEmail = document.getElementById("fReportEmail").value.trim();
+    lsSet("reportEmail", reportEmail);
     clampCurrentDay();
     persist();
     setSyncState(syncUrl ? "pending" : "off");
@@ -974,7 +989,278 @@
     persist("signatures");
     closeSigPad();
     render();
+    verificarConclusao();
   });
+
+  /* ===================== relatório PDF ===================== */
+  var reportEmail = lsGet("reportEmail", "eduardo.costa@sixsis.com");
+  var logoDataUrl = null;
+
+  (function preloadLogo(){
+    var img = new Image();
+    img.onload = function(){
+      try{
+        var c = document.createElement("canvas");
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        c.getContext("2d").drawImage(img, 0, 0);
+        logoDataUrl = c.toDataURL("image/png");
+      }catch(e){ logoDataUrl = null; }
+    };
+    img.src = "icons/sixsis-logo.png";
+  })();
+
+  // As fontes base do PDF são Latin-1: troca o sigma e remove o resto.
+  function pdfSafe(s){
+    return String(s == null ? "" : s)
+      .replace(/(\d)\s*[σΣ]/g, "$1 Sigma")
+      .replace(/[σΣ]/g, "Sigma")
+      .replace(/[^\x00-\xFF]/g, "");
+  }
+
+  function todasAssinadas(){
+    var dias = state.config.dias || [];
+    var ps = state.participants || [];
+    if (!dias.length || !ps.length) return false;
+    for (var i = 0; i < dias.length; i++){
+      for (var j = 0; j < ps.length; j++){
+        if (!state.signatures[sigKey(ps[j].id, i)]) return false;
+      }
+    }
+    return true;
+  }
+
+  function desenhaAssinatura(doc, strokes, x, y, w, h){
+    if (!strokes || !strokes.length) return;
+    doc.setDrawColor(30, 25, 18);
+    doc.setLineWidth(0.35);
+    strokes.forEach(function(st){
+      for (var i = 1; i < st.length; i++){
+        doc.line(x + st[i-1][0]*w, y + st[i-1][1]*h, x + st[i][0]*w, y + st[i][1]*h);
+      }
+    });
+  }
+
+  function gerarRelatorioPDF(){
+    var jsPDFctor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFctor) throw new Error("jsPDF indisponível");
+
+    var doc = new jsPDFctor({ unit: "mm", format: "a4", orientation: "portrait" });
+    var cfg = state.config;
+    var dias = cfg.dias || [];
+    var ps = state.participants || [];
+    var M = 18, W = 210, right = W - M, usable = W - 2*M;
+    var y;
+
+    function cabecalho(titulo){
+      if (logoDataUrl){
+        try{ doc.addImage(logoDataUrl, "PNG", M, 12, 18, 11.6); }catch(e){}
+      }
+      doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(40, 33, 22);
+      doc.text(pdfSafe(titulo), right, 18, { align: "right" });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(120, 105, 88);
+      doc.text(pdfSafe(cfg.entidade || ""), right, 23.5, { align: "right" });
+      doc.setDrawColor(205, 185, 150); doc.setLineWidth(0.4);
+      doc.line(M, 28, right, 28);
+      doc.setTextColor(40, 33, 22);
+      return 38;
+    }
+
+    // ---------- página 1 ----------
+    y = cabecalho("Relatório de Formação");
+
+    var info = [
+      ["Designação", cfg.designacao],
+      ["Formador", cfg.formador],
+      ["Local de realização", cfg.local],
+      ["Horário", (cfg.horario || "").replace(/\s+/g, "   ")],
+      ["Datas", dias.length ? (fmtLong(dias[0].data) + "  a  " + fmtLong(dias[dias.length-1].data)) : "—"],
+      ["Participantes", String(ps.length)]
+    ];
+    doc.setFontSize(10);
+    info.forEach(function(par){
+      doc.setFont("helvetica", "bold"); doc.setTextColor(120, 105, 88);
+      doc.text(pdfSafe(par[0]), M, y);
+      doc.setFont("helvetica", "normal"); doc.setTextColor(40, 33, 22);
+      doc.text(doc.splitTextToSize(pdfSafe(par[1] || "—"), usable - 42), M + 42, y);
+      y += 6.5;
+    });
+
+    // resumos
+    y += 4;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+    doc.text("Resumo dos conteúdos abordados", M, y); y += 7;
+    doc.setFontSize(10);
+    dias.forEach(function(d){
+      if (y > 262){ doc.addPage(); y = cabecalho("Relatório de Formação"); }
+      doc.setFont("helvetica", "bold"); doc.setTextColor(140, 100, 40);
+      doc.text(pdfSafe(fmtLong(d.data)), M, y); y += 5;
+      doc.setFont("helvetica", "normal"); doc.setTextColor(40, 33, 22);
+      var linhas = doc.splitTextToSize(pdfSafe(d.resumo || "(sem registo)"), usable);
+      linhas.forEach(function(ln){
+        if (y > 274){ doc.addPage(); y = cabecalho("Relatório de Formação"); }
+        doc.text(ln, M, y); y += 4.8;
+      });
+      y += 3;
+    });
+
+    // mapa de presenças
+    if (y > 225){ doc.addPage(); y = cabecalho("Relatório de Formação"); }
+    y += 4;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+    doc.text("Mapa de presenças", M, y); y += 7;
+
+    var colNome = 58, colDia = dias.length ? Math.min(26, (usable - colNome) / dias.length) : 26;
+    doc.setFontSize(8.5); doc.setTextColor(120, 105, 88);
+    dias.forEach(function(d, i){
+      var f = fmtDay(d.data);
+      doc.text(pdfSafe(f.top + " " + f.bottom), M + colNome + i*colDia + colDia/2, y, { align: "center" });
+    });
+    y += 2;
+    doc.setDrawColor(205, 185, 150); doc.setLineWidth(0.3);
+    doc.line(M, y, M + colNome + dias.length*colDia, y); y += 5;
+
+    doc.setFontSize(9.5);
+    ps.forEach(function(p, idx){
+      if (y > 275){ doc.addPage(); y = cabecalho("Relatório de Formação"); }
+      doc.setFont("helvetica", "normal"); doc.setTextColor(40, 33, 22);
+      doc.text(pdfSafe((idx+1) + ". " + p.nome), M, y);
+      dias.forEach(function(d, i){
+        var sig = state.signatures[sigKey(p.id, i)];
+        var cx = M + colNome + i*colDia + colDia/2;
+        if (sig){ doc.setTextColor(63, 125, 82); doc.text(pdfSafe(sig.ts || "ok"), cx, y, { align: "center" }); }
+        else { doc.setTextColor(170, 155, 135); doc.text("—", cx, y, { align: "center" }); }
+      });
+      y += 6;
+    });
+
+    doc.setDrawColor(205, 185, 150);
+    doc.line(M, y - 3.5, M + colNome + dias.length*colDia, y - 3.5);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(120, 105, 88);
+    doc.text("Assinaturas", M, y + 1.5);
+    dias.forEach(function(d, i){
+      var n = 0;
+      ps.forEach(function(p){ if (state.signatures[sigKey(p.id, i)]) n++; });
+      doc.text(n + "/" + ps.length, M + colNome + i*colDia + colDia/2, y + 1.5, { align: "center" });
+    });
+
+    // ---------- uma folha de assinaturas por dia ----------
+    dias.forEach(function(d, i){
+      doc.addPage();
+      var yy = cabecalho("Folha de presenças");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(140, 100, 40);
+      doc.text(pdfSafe(fmtLong(d.data)), M, yy);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(120, 105, 88);
+      doc.text(pdfSafe(cfg.designacao || ""), right, yy, { align: "right" });
+      yy += 10;
+
+      ps.forEach(function(p, idx){
+        if (yy > 262){ doc.addPage(); yy = cabecalho("Folha de presenças") + 6; }
+        var sig = state.signatures[sigKey(p.id, i)];
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(40, 33, 22);
+        doc.text(pdfSafe((idx+1) + ". " + p.nome), M, yy + 12);
+
+        var bx = M + 84, bw = 62, bh = 15;
+        if (sig){
+          desenhaAssinatura(doc, sig.strokes, bx, yy + 1, bw, bh);
+          doc.setFontSize(8); doc.setTextColor(63, 125, 82);
+          doc.text(pdfSafe(sig.ts || ""), right, yy + 12, { align: "right" });
+        } else {
+          doc.setFontSize(8); doc.setTextColor(170, 155, 135);
+          doc.text("ausente", right, yy + 12, { align: "right" });
+        }
+        doc.setDrawColor(205, 185, 150); doc.setLineWidth(0.25);
+        doc.line(bx, yy + 16.5, bx + bw, yy + 16.5);
+        yy += 22;
+      });
+
+      yy += 6;
+      doc.setFontSize(9); doc.setTextColor(120, 105, 88);
+      doc.text(pdfSafe("O Formador: " + (cfg.formador || "")), M, yy);
+    });
+
+    // ---------- rodapés ----------
+    var total = doc.getNumberOfPages();
+    var carimbo = "Gerado em " + new Date().toLocaleString("pt-PT");
+    for (var pg = 1; pg <= total; pg++){
+      doc.setPage(pg);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(150, 135, 115);
+      doc.text(pdfSafe(carimbo), M, 288);
+      doc.text("Pág. " + pg + "/" + total, right, 288, { align: "right" });
+    }
+
+    var nome = "Relatorio_" + String(cfg.designacao || "Formacao").replace(/[^\w -]/g,"").trim().replace(/\s+/g,"_") +
+      (dias.length ? ("_" + dias[0].data) : "") + ".pdf";
+    return { blob: doc.output("blob"), filename: nome };
+  }
+
+  function guardarPdf(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  }
+
+  function enviarRelatorio(){
+    var out;
+    try{
+      out = gerarRelatorioPDF();
+    }catch(e){
+      showBanner("Não foi possível gerar o relatório (" + e.message + ").", true);
+      return;
+    }
+    var cfg = state.config;
+    var assunto = "Relatório de formação — " + (cfg.designacao || "");
+    var ficheiro = null;
+    try{ ficheiro = new File([out.blob], out.filename, { type: "application/pdf" }); }catch(e){}
+
+    if (ficheiro && navigator.canShare && navigator.canShare({ files: [ficheiro] })){
+      navigator.share({
+        files: [ficheiro],
+        title: assunto,
+        text: assunto + "\nPara: " + (reportEmail || "")
+      }).then(function(){
+        showBanner("Relatório enviado.");
+      }).catch(function(err){
+        if (err && err.name === "AbortError") return;
+        guardarPdf(out.blob, out.filename);
+        showBanner("Relatório guardado no tablet.");
+      });
+      return;
+    }
+
+    // sem partilha de ficheiros: guarda o PDF e abre o email já endereçado
+    guardarPdf(out.blob, out.filename);
+    showBanner("Relatório guardado. Anexa-o ao email que vai abrir.");
+    if (reportEmail){
+      var corpo = "Segue em anexo o relatório da formação " + (cfg.designacao || "") + ".\n\n" +
+        "Ficheiro: " + out.filename;
+      setTimeout(function(){
+        window.location.href = "mailto:" + encodeURIComponent(reportEmail) +
+          "?subject=" + encodeURIComponent(assunto) + "&body=" + encodeURIComponent(corpo);
+      }, 1200);
+    }
+  }
+
+  document.getElementById("btnReport").addEventListener("click", enviarRelatorio);
+
+  function verificarConclusao(){
+    if (!todasAssinadas()) return;
+    if (lsGet("relatorioProposto", "") === assinaturasFingerprint()) return;
+    var b = document.getElementById("banner");
+    b.innerHTML = '<div class="banner" style="display:flex;align-items:center;gap:12px;justify-content:space-between;">' +
+      '<span>Todas as assinaturas foram recolhidas.</span>' +
+      '<button class="btn" id="btnBannerReport" style="flex:none;">Enviar relatório</button></div>';
+    clearTimeout(bannerTimer);
+    document.getElementById("btnBannerReport").addEventListener("click", function(){
+      lsSet("relatorioProposto", assinaturasFingerprint());
+      showBanner("");
+      enviarRelatorio();
+    });
+  }
+  function assinaturasFingerprint(){
+    return Object.keys(state.signatures).sort().join("|");
+  }
 
   /* ===================== exportação CSV ===================== */
   document.getElementById("btnExport").addEventListener("click", function(){

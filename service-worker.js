@@ -3,7 +3,7 @@
 // requests (the Google Apps Script sync calls), so those always go
 // straight to the network.
 
-var CACHE_VERSION = "sixsis-diario-v2";
+var CACHE_VERSION = "sixsis-diario-v3";
 var APP_SHELL = [
   "./",
   "./index.html",
@@ -12,7 +12,8 @@ var APP_SHELL = [
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png",
-  "./icons/sixsis-logo.png"
+  "./icons/sixsis-logo.png",
+  "./vendor/jspdf.umd.min.js"
 ];
 
 self.addEventListener("install", function (event) {
