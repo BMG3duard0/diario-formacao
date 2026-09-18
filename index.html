@@ -1578,6 +1578,41 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
   }
 
+  // Tablet/telemóvel: a folha de partilha é o caminho natural.
+  // Computador: a folha de partilha do Windows é um beco sem saída — mais vale
+  // abrir o PDF e guardá-lo.
+  function ehTactil(){
+    try{
+      return (navigator.maxTouchPoints || 0) > 0 &&
+             window.matchMedia("(pointer: coarse)").matches;
+    }catch(e){ return false; }
+  }
+
+  function abrirEmailComAnexoManual(assunto, filename){
+    if (!reportEmail) return;
+    var corpo = "Segue o relatório da formação " + (state.config.designacao || "") + ".\n\n" +
+      "O ficheiro " + filename + " está na pasta Transferências — anexa-o antes de enviar.";
+    window.location.href = "mailto:" + encodeURIComponent(reportEmail) +
+      "?subject=" + encodeURIComponent(assunto) + "&body=" + encodeURIComponent(corpo);
+  }
+
+  function bannerRelatorioPronto(assunto, out, urlAberto){
+    var b = document.getElementById("banner");
+    b.innerHTML = '<div class="banner" style="display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;">' +
+      '<span>Relatório gerado e guardado nas Transferências.</span>' +
+      '<span style="display:flex;gap:8px;flex:none;">' +
+      '<button class="btn ghost" id="btnAbrirPdf" style="flex:none;">Abrir</button>' +
+      '<button class="btn" id="btnEmailPdf" style="flex:none;">Enviar por email</button>' +
+      '</span></div>';
+    clearTimeout(bannerTimer);
+    document.getElementById("btnAbrirPdf").addEventListener("click", function(){
+      window.open(urlAberto, "_blank");
+    });
+    document.getElementById("btnEmailPdf").addEventListener("click", function(){
+      abrirEmailComAnexoManual(assunto, out.filename);
+    });
+  }
+
   function enviarRelatorio(){
     var out;
     try{
@@ -1590,6 +1625,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     var assunto = "Relatório de formação — " + (cfg.designacao || "");
     var ficheiro = null;
     try{ ficheiro = new File([out.blob], out.filename, { type: "application/pdf" }); }catch(e){}
+
+    if (!ehTactil()){
+      // computador: abre o PDF numa janela nova e guarda-o
+      var url = URL.createObjectURL(out.blob);
+      var w = null;
+      try{ w = window.open(url, "_blank"); }catch(e){}
+      guardarPdf(out.blob, out.filename);
+      bannerRelatorioPronto(assunto, out, url);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 600000);
+      if (!w) showBanner("Relatório guardado nas Transferências (o browser bloqueou a janela nova).");
+      return;
+    }
 
     if (ficheiro && navigator.canShare && navigator.canShare({ files: [ficheiro] })){
       navigator.share({
